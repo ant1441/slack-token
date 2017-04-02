@@ -1,3 +1,5 @@
+use token::User;
+
 pub type TeamId = String;
 pub type ChannelId = String;
 pub type UserId = String;
@@ -27,9 +29,9 @@ enum ResponseType {
 use self::ResponseType::*;
 
 #[derive(Serialize)]
-pub struct SlackResponse<'a> {
+pub struct SlackResponse {
     response_type: ResponseType,
-    text: Option<&'a str>,
+    text: Option<String>,
     attachments: Vec<SlackAttachment>,
 }
 
@@ -38,11 +40,11 @@ pub struct SlackAttachment {
     text: String,
 }
 
-impl<'r> SlackResponse<'r> {
+impl SlackResponse {
     pub fn ephemeral_text(text: &str) -> SlackResponse {
         SlackResponse {
             response_type: Ephemeral,
-            text: Some(text),
+            text: Some(text.to_owned()),
             attachments: vec![]
         }
     }
@@ -50,13 +52,13 @@ impl<'r> SlackResponse<'r> {
     pub fn inchannel_text(text: &str) -> SlackResponse {
         SlackResponse {
             response_type: InChannel,
-            text: Some(text),
+            text: Some(text.to_owned()),
             attachments: vec![]
         }
     }
 }
 
-pub fn send_help<'a>() -> SlackResponse<'a> {
+pub fn send_help() -> SlackResponse {
     SlackResponse {
         response_type: Ephemeral,
         text: None,
@@ -75,15 +77,17 @@ Token manager. Use `/token get` to take hold of the token.
 }
 
 /// Format a list into a simple Slack response, with each item numbered
-pub fn format_list<'a>(items: &[&str]) -> SlackResponse<'a> {
-    let text = String::new();
-    let text = items.iter().enumerate().fold(text, |acc, (i, &s)| {
-        acc + &format!("{}: {}\n", &i.to_string(), s)
+pub fn format_list<'a, I>(text: Option<String>, items: I) -> SlackResponse
+    where I: Iterator<Item=&'a User>
+{
+    let string = String::new();
+    let string = items.fold(string, |acc, s| {
+        acc + ":large_blue_circle: " + &s.as_slack_str() + "\n"
     });
-    let attachment = SlackAttachment { text: text };
+    let attachment = SlackAttachment { text: string };
     SlackResponse {
         response_type: InChannel,
-        text: None,
+        text: text.map(|s| s.to_owned()),
         attachments: vec![attachment],
     }
 }
@@ -113,6 +117,6 @@ mod tests {
     #[test]
     fn test_format_list() {
         let list = vec!["one", "two"];
-        let ret = format_list(&list);
+        let ret = format_list(None, &list);
     }
 }

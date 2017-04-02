@@ -1,4 +1,4 @@
-#![feature(plugin, custom_derive)]
+#![feature(conservative_impl_trait, custom_derive, plugin)]
 #![plugin(rocket_codegen)]
 
 extern crate rocket;
@@ -27,7 +27,7 @@ fn index() -> &'static str {
 fn slack<'a>(slash_form: Form<slack::SlashCommandData>,
              config: State<config::CommandConfig>,
              tokens: State<token::Tokens>)
-             -> Result<JSON<slack::SlackResponse<'a>>, &'static str> {
+             -> Result<JSON<slack::SlackResponse>, &'static str> {
     let slash = slash_form.get();
     if slash.token != config.token {
         return Err("token mismatch");
@@ -41,44 +41,53 @@ fn slack<'a>(slash_form: Form<slack::SlashCommandData>,
 
     match slash.text.to_lowercase().trim() {
         "list" => {
-            format_list(&*token.read().map_err(|_| "unable to lock token (r)")?)
+            format_list(None, &*token.read().map_err(|_| "unable to lock token (r)")?)
         }
         "get" => {
-            (*token.write().map_err(|_| "unable to lock token (w)")?).get(user);
-            format_list(&*token.read().map_err(|_| "unable to lock token (r)")?)
+            if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).get(user) {
+                return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
+            }
+            format_list(None, &*token.read().map_err(|_| "unable to lock token (r)")?)
         }
         "drop" => {
-            (*token.write().map_err(|_| "unable to lock token (w)")?).drop(&user);
-            format_list(&*token.read().map_err(|_| "unable to lock token (r)")?)
+            let message = format!("{} dropped the token", user.as_slack_str());
+            if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).drop(&user) {
+                return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
+            }
+            format_list(Some(message), &*token.read().map_err(|_| "unable to lock token (r)")?)
         }
         "afteryou" => {
             if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).step_back(&user) {
                 return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
             };
-            format_list(&*token.read().map_err(|_| "unable to lock token (r)")?)
+            format_list(None, &*token.read().map_err(|_| "unable to lock token (r)")?)
         }
         "barge" => {
             if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).to_front(&user) {
                 return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
             };
-            format_list(&*token.read().map_err(|_| "unable to lock token (r)")?)
+            format_list(None, &*token.read().map_err(|_| "unable to lock token (r)")?)
         }
         "steal" => {
             if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).steal(&user) {
                 return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
             };
-            format_list(&*token.read().map_err(|_| "unable to lock token (r)")?)
+            format_list(None, &*token.read().map_err(|_| "unable to lock token (r)")?)
         }
         _ => Ok(JSON(slack::send_help())),
     }
 }
 
-fn format_list<'a>(token: &token::Token) -> Result<JSON<slack::SlackResponse<'a>>, &'static str> {
-    let list = token.list();
-    if list.len() == 0 {
-        Ok(JSON(slack::SlackResponse::inchannel_text("No one in the Token queue")))
+fn format_list<'a>(text: Option<String>, token: &token::Token) -> Result<JSON<slack::SlackResponse>, &'static str> {
+    if token.len() == 0 {
+        if let Some(text) = text {
+            Ok(JSON(slack::SlackResponse::inchannel_text(&(text + &"\nNo one in the Token queue"))))
+        } else {
+            Ok(JSON(slack::SlackResponse::inchannel_text("No one in the Token queue")))
+        }
     } else {
-        Ok(JSON(slack::format_list(&list)))
+        let list = token.iter();
+        Ok(JSON(slack::format_list(text, list)))
     }
 }
 

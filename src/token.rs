@@ -3,6 +3,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
+use std::fmt;
 
 use slack::{TeamId, ChannelId};
 
@@ -19,7 +20,18 @@ impl User {
             user_name: user_name,
         }
     }
+
+    pub fn as_slack_str(&self) -> String {
+        format!("<@{}|{}>", self.user_id, self.user_name)
+    }
 }
+
+impl fmt::Display for User {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.user_name)
+    }
+}
+
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Token {
@@ -56,15 +68,21 @@ impl Token {
         self.users.len()
     }
 
-    pub fn get(&mut self, user: User) {
+    pub fn get(&mut self, user: User) -> Result<(), &'static str> {
         // We want the queue to be unique
         if self.users.iter().position(|u| *u == user).is_none() {
-            self.users.push_back(user);
+            Ok(self.users.push_back(user))
+        } else {
+            Err("You are already in the queue!")
         }
     }
 
-    pub fn drop(&mut self, user: &User) {
-        (&mut self.users).retain(|u| u != user);
+    pub fn drop(&mut self, user: &User) -> Result<(), &'static str> {
+        if let Some(_) = self.users.iter().position(|u| u == user) {
+            Ok((&mut self.users).retain(|u| u != user))
+        } else {
+            Err("You are not in the queue!")
+        }
     }
 
     pub fn step_back(&mut self, user: &User) -> Result<(), &'static str> {
@@ -110,11 +128,11 @@ impl Token {
         }
     }
 
-    pub fn iter(&self) -> Iter<User> {
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item=&'a User> {
         (&self.users).iter()
     }
 
-    pub fn list(&self) -> Vec<&str> {
+    pub fn list_user_name(&self) -> Vec<&str> {
         (&self.users).iter().map(|u| u.user_name.as_str()).collect()
     }
 
