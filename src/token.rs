@@ -150,7 +150,7 @@ mod tests {
     fn test_get() {
         let mut t = Token::new();
         let u = User::new("id".to_string(), "name".to_string());
-        t.get(u.clone());
+        t.get(u.clone()).unwrap();
 
         assert!(t.is_holding(&u));
     }
@@ -159,9 +159,9 @@ mod tests {
     fn test_drop() {
         let mut t = Token::new();
         let u = User::new("id".to_string(), "name".to_string());
-        t.get(u.clone());
+        t.get(u.clone()).unwrap();
         assert!(t.is_holding(&u));
-        t.drop(&u);
+        t.drop(&u).unwrap();
         assert!(!t.is_holding(&u));
     }
 
@@ -172,31 +172,31 @@ mod tests {
         let u1 = User::new("id1".to_string(), "name1".to_string());
         let u2 = User::new("id2".to_string(), "name2".to_string());
         let u3 = User::new("id3".to_string(), "name3".to_string());
-        t.get(u0.clone());
+        t.get(u0.clone()).unwrap();
         assert_eq!(t.len(), 1);
-        t.get(u1.clone());
+        t.get(u1.clone()).unwrap();
         assert_eq!(t.len(), 2);
-        t.get(u2.clone());
+        t.get(u2.clone()).unwrap();
         assert_eq!(t.len(), 3);
-        t.get(u3.clone());
+        t.get(u3.clone()).unwrap();
         assert_eq!(t.len(), 4);
 
         assert!(t.is_holding(&u0));
     }
 
     #[test]
-    fn test_list() {
+    fn test_list_user_name() {
         let mut t = Token::new();
         let u0 = User::new("id0".to_string(), "name0".to_string());
         let u1 = User::new("id1".to_string(), "name1".to_string());
         let u2 = User::new("id2".to_string(), "name2".to_string());
         let u3 = User::new("id3".to_string(), "name3".to_string());
-        t.get(u0);
-        t.get(u1);
-        t.get(u2);
-        t.get(u3);
+        t.get(u0).unwrap();
+        t.get(u1).unwrap();
+        t.get(u2).unwrap();
+        t.get(u3).unwrap();
 
-        assert_eq!(t.list(), vec!["name0", "name1", "name2", "name3"]);
+        assert_eq!(t.list_user_name(), vec!["name0", "name1", "name2", "name3"]);
     }
 
     #[test]
@@ -206,17 +206,17 @@ mod tests {
         let u1 = User::new("id1".to_string(), "name1".to_string());
         let u2 = User::new("id2".to_string(), "name2".to_string());
         let u3 = User::new("id3".to_string(), "name3".to_string());
-        t.get(u0.clone());
-        t.get(u1.clone());
-        t.get(u2.clone());
-        t.get(u3.clone());
+        t.get(u0.clone()).unwrap();
+        t.get(u1.clone()).unwrap();
+        t.get(u2.clone()).unwrap();
+        t.get(u3.clone()).unwrap();
 
         t.step_back(&u0).unwrap();
-        assert_eq!(t.list(), vec!["name1", "name0", "name2", "name3"]);
+        assert_eq!(t.list_user_name(), vec!["name1", "name0", "name2", "name3"]);
         t.step_back(&u0).unwrap();
-        assert_eq!(t.list(), vec!["name1", "name2", "name0", "name3"]);
+        assert_eq!(t.list_user_name(), vec!["name1", "name2", "name0", "name3"]);
         t.step_back(&u0).unwrap();
-        assert_eq!(t.list(), vec!["name1", "name2", "name3", "name0"]);
+        assert_eq!(t.list_user_name(), vec!["name1", "name2", "name3", "name0"]);
 
         assert!(t.step_back(&u0).is_err());
     }
@@ -228,13 +228,13 @@ mod tests {
         let u1 = User::new("id1".to_string(), "name1".to_string());
         let u2 = User::new("id2".to_string(), "name2".to_string());
         let u3 = User::new("id3".to_string(), "name3".to_string());
-        t.get(u0.clone());
-        t.get(u1.clone());
-        t.get(u2.clone());
-        t.get(u3.clone());
+        t.get(u0.clone()).unwrap();
+        t.get(u1.clone()).unwrap();
+        t.get(u2.clone()).unwrap();
+        t.get(u3.clone()).unwrap();
 
         t.to_front(&u2).unwrap();
-        assert_eq!(t.list(), vec!["name0", "name2", "name1", "name3"]);
+        assert_eq!(t.list_user_name(), vec!["name0", "name2", "name1", "name3"]);
 
         assert!(t.to_front(&u2).is_err());
     }
@@ -246,15 +246,15 @@ mod tests {
         let u1 = User::new("id1".to_string(), "name1".to_string());
         let u2 = User::new("id2".to_string(), "name2".to_string());
         let u3 = User::new("id3".to_string(), "name3".to_string());
-        t.get(u0.clone());
-        t.get(u1.clone());
-        t.get(u2.clone());
-        t.get(u3.clone());
+        t.get(u0.clone()).unwrap();
+        t.get(u1.clone()).unwrap();
+        t.get(u2.clone()).unwrap();
+        t.get(u3.clone()).unwrap();
 
         t.steal(&u2).unwrap();
-        assert_eq!(t.list(), vec!["name2", "name1", "name3"]);
+        assert_eq!(t.list_user_name(), vec!["name2", "name1", "name3"]);
         t.steal(&u3).unwrap();
-        assert_eq!(t.list(), vec!["name3", "name1"]);
+        assert_eq!(t.list_user_name(), vec!["name3", "name1"]);
 
         assert!(t.steal(&u2).is_err());
     }
@@ -266,10 +266,10 @@ mod tests {
         let u1 = User::new("id1".to_string(), "name1".to_string());
         let u2 = User::new("id2".to_string(), "name2".to_string());
         let u3 = User::new("id3".to_string(), "name3".to_string());
-        t.get(u0.clone());
-        t.get(u1.clone());
-        t.get(u2.clone());
-        t.get(u3.clone());
+        t.get(u0.clone()).unwrap();
+        t.get(u1.clone()).unwrap();
+        t.get(u2.clone()).unwrap();
+        t.get(u3.clone()).unwrap();
 
         assert!(t.is_holding(&u0))
     }

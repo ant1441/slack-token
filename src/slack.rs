@@ -109,14 +109,3 @@ fn valid_team(_team: &str) -> bool {
 fn valid_command(_command: &str) -> bool {
     true
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_format_list() {
-        let list = vec!["one", "two"];
-        let ret = format_list(None, &list);
-    }
-}
