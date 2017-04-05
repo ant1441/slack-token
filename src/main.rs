@@ -15,10 +15,13 @@ use rocket::request::Form;
 use rocket_contrib::JSON;
 
 mod config;
+mod commands;
 #[macro_use]
 mod macros;
 mod slack;
 mod token;
+
+use commands::Commands;
 
 #[get("/")]
 fn index() -> &'static str {
@@ -36,40 +39,47 @@ fn slack<'a>(slash_form: Form<slack::SlashCommandData>,
     }
     slack::validate_command(&slash)?;
 
+    let ref command_text = slash.text;
+    let mut command_parts = command_text.splitn(1, ' ');
+    let command = command_parts.next().and_then(|s| s.parse().ok());
+    // [TODO]: Allow passing a second option for the "name" of the token, otherwise default to the
+    // channel token
+    // let options = command_parts.next();
+
     let mut tokens_map = tokens.0.lock().unwrap();
     let token_entry = tokens_map.entry((slash.team_id.to_owned(), slash.channel_id.to_owned()));
     let token = token_entry.or_insert(Arc::new(RwLock::new(token::Token::new())));
     let user = token::User::new(slash.user_id.to_owned(), slash.user_name.to_owned());
 
-    match slash.text.to_lowercase().trim() {
-        "list" => {
+    match command {
+        Some(Commands::List) => {
             printlist!(token)
         }
-        "get" => {
+        Some(Commands::Get) => {
             if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).get(user.clone()) {
                 return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
             }
             printlist!(token, "{} joined the queue", user.as_slack_str())
         }
-        "drop" => {
+        Some(Commands::Drop) => {
             if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).drop(&user) {
                 return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
             }
             printlist!(token, "{} dropped the token", user.as_slack_str())
         }
-        "afteryou" => {
+        Some(Commands::AfterYou) => {
             if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).step_back(&user) {
                 return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
             };
             printlist!(token)
         }
-        "barge" => {
+        Some(Commands::Barge) => {
             if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).to_front(&user) {
                 return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
             };
             printlist!(token, "{} barged to the front!", user.as_slack_str())
         }
-        "steal" => {
+        Some(Commands::Steal) => {
             if let Err(e) = (*token.write().map_err(|_| "unable to lock token (w)")?).steal(&user) {
                 return Ok(JSON(slack::SlackResponse::ephemeral_text(e)));
             };
